@@ -1,0 +1,36 @@
+deployment:
+  enabled: true
+  replicas: 2
+
+ports:
+  web:
+    redirectTo:
+      port: websecure
+  websecure:
+    http3:
+      enabled: true
+    advertisedPort: 4443
+    tls:
+      enabled: true
+
+ingressRoute:
+  dashboard:
+    enabled: false
+
+providers:
+  kubernetesCRD:
+    enabled: true
+    allowExternalNameServices: true
+  kubernetesIngress:
+    enabled: true
+    allowExternalNameServices: true
+    publishedService:
+      enabled: false
+
+rbac:
+  enabled: true
+
+service:
+  enabled: true
+  type: LoadBalancer
+

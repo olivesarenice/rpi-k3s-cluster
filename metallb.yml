@@ -1,0 +1,18 @@
+---
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: k3s-lb-pool
+  namespace: metallb-system
+spec:
+  addresses:
+  ## Replace this with your IP address reserved range.
+  ## This should be on the same network as your nodes!
+  ## This address range should be blocked on your router DHCP config
+  - 192.168.10.230-192.168.10.240
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: k3s-lb-pool
+  namespace: metallb-system
