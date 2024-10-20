@@ -1,0 +1,64 @@
+# Create PV inside the k3s local-path storage folder for easier management.
+# note that we are overring the local-path-provisioner by explicitly creating a PV
+# Instead of letting it do it for us based on a PVC.
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: airflow-logs-pv
+  namespace: airflow-cluster
+spec:
+  storageClassName: local-path
+  capacity:
+    storage: 128Mi
+  accessModes:
+    - ReadWriteMany
+  hostPath:
+    path: "/var/lib/rancher/k3s/storage/airflow-logs-pv"  # Update this path accordingly
+
+---
+# Create PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: airflow-logs-pvc
+  namespace: airflow-cluster
+spec:
+  storageClassName: local-path
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 128Mi
+  volumeName: airflow-logs-pv  # Add this line to bind to the PV
+
+---
+# Run a Job to change the ownership and RWX policies of the log folder
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: airflow-cluster-permissions-job
+  namespace: airflow-cluster
+spec:
+  ttlSecondsAfterFinished: 600  # Job will be deleted 600 seconds after completion
+  template:
+    spec:
+      containers:
+      - image: nginx
+        name: airflow-cluster-permissions
+        volumeMounts:
+        - mountPath: /opt/airflow/logs
+          name: logs
+        command:
+        - "/bin/sh"
+        - "-c"
+        - |
+          chown -R 50000 /opt/airflow/logs && \
+          chmod -R 777 /opt/airflow/logs && \
+          ls -la /opt/airflow/logs && \
+          pwd
+      restartPolicy: Never
+      volumes:
+      - name: logs
+        persistentVolumeClaim:
+          claimName: airflow-logs-pvc

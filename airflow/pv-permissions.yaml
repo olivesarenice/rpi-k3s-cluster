@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: airflow-cluster-permissions-pod
+  namespace: airflow-cluster
+spec:
+  containers:
+  - image: nginx
+    name: airflow-cluster-permissions-pod
+    volumeMounts:
+    - mountPath: /opt/airflow/logs
+      name: logs
+    command:
+    - "/bin/sh"
+    - "-c"
+    - |
+      chown -R 50000 /opt/airflow/logs && chmod -R 777 /opt/airflow/logs
+  volumes:
+  - name: logs
+    persistentVolumeClaim:
+      claimName: airflow-logs-pvc

@@ -2,6 +2,8 @@
 ## CONFIG | Airflow Configs
 ########################################
 airflow:
+  defaultNodeSelector:
+    node_type: worker
   ## if we use legacy 1.10 airflow commands
   legacyCommands: false
 
@@ -81,13 +83,13 @@ airflow:
 
     ## resource requests/limits for the Pod template "base" container
     ## [SPEC] https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#resourcerequirements-v1-core
-    resources:
-      limits:
-        cpu: 400m
-        memory: 512Mi
-      requests:
-        cpu: 200m
-        memory: 256Mi
+    # resources:
+    #   limits:
+    #     cpu: 400m
+    #     memory: 512Mi
+    #   requests:
+    #     cpu: 200m
+    #     memory: 256Mi
 
     ## extra pip packages to install in the Pod template
     ## [FAQ] https://github.com/airflow-helm/charts/blob/main/charts/airflow/docs/faq/configuration/extra-python-packages.md
@@ -113,12 +115,18 @@ scheduler:
 
   ## resource requests/limits for the scheduler Pods
   ## [SPEC] https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#resourcerequirements-v1-core
-  resources: {}
+  # resources:
+  #   limits:
+  #     cpu: 400m
+  #     memory: 512Mi
+  #   requests:
+  #     cpu: 200m
+  #     memory: 128Mi
 
   ## configs for the log-cleanup sidecar of the scheduler
   ## [FAQ] https://github.com/airflow-helm/charts/blob/main/charts/airflow/docs/faq/monitoring/log-cleanup.md
   logCleanup:
-    enabled: true
+    enabled: false
     retentionMinutes: 21600
 
   ## configs for the scheduler Pods' liveness probe
@@ -142,25 +150,34 @@ web:
 
   ## resource requests/limits for the web Pods
   ## [SPEC] https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#resourcerequirements-v1-core
-  resources: {}
-  readinessProbe:
-    enabled: true
-    initialDelaySeconds: 10
-    periodSeconds: 30
-    timeoutSeconds: 30
-    failureThreshold: 600
-  livenessProbe:
-    enabled: true
-    initialDelaySeconds: 5
-    periodSeconds: 30
-    timeoutSeconds: 60
-    failureThreshold: 600
-  startupProbe:
-    enabled: true
-    initialDelaySeconds: 5
-    periodSeconds: 10
-    timeoutSeconds: 15
-    failureThreshold: 600
+  # resources:
+  #   limits:
+  #     cpu: 2000m
+  #     memory: 1Gi
+  #   requests:
+  #     cpu: 200m
+  #     memory: 512Mi
+
+  # readinessProbe:
+  #   enabled: true
+  #   initialDelaySeconds: 10
+  #   periodSeconds: 30
+  #   timeoutSeconds: 30
+  #   failureThreshold: 600
+
+  # livenessProbe:
+  #   enabled: true
+  #   initialDelaySeconds: 5
+  #   periodSeconds: 30
+  #   timeoutSeconds: 60
+  #   failureThreshold: 600
+
+  # startupProbe:
+  #   enabled: true
+  #   initialDelaySeconds: 5
+  #   periodSeconds: 10
+  #   timeoutSeconds: 15
+  #   failureThreshold: 600
   ## configs for the Service of the web Pods
   service:
     type: ClusterIP
@@ -202,7 +219,13 @@ triggerer:
 
   ## resource requests/limits for the triggerer Pods
   ## [SPEC] https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#resourcerequirements-v1-core
-  resources: {}
+  resources:
+    limits:
+      cpu: 400m
+      memory: 512Mi
+    requests:
+      cpu: 200m
+      memory: 128Mi
 
   ## maximum number of triggers each triggerer will run at once (sets `AIRFLOW__TRIGGERER__DEFAULT_CAPACITY`)
   capacity: 1000
@@ -224,8 +247,9 @@ logs:
   ## configs for the logs PVC
   ## [FAQ] https://github.com/airflow-helm/charts/blob/main/charts/airflow/docs/faq/monitoring/log-persistence.md
   persistence:
-    enabled: false
-
+    enabled: true
+    existingClaim: airflow-logs-pvc # explicitly control the PVC, rather than let airflow manage it
+    accessMode: ReadWriteMany
 ###################################
 ## CONFIG | Airflow DAGs
 ###################################
@@ -241,7 +265,16 @@ dags:
   ## configs for the git-sync sidecar
   ## [FAQ] https://github.com/airflow-helm/charts/blob/main/charts/airflow/docs/faq/dags/load-dag-definitions.md
   gitSync:
-    enabled: false
+    enabled: true
+    repo: git@github.com:olivesarenice/airflow-dags.git
+    depth: 1
+    branch: main
+    maxFailures: 0
+    subPath: "dags/"
+    sshSecret: "airflow-ssh-secret"
+    sshSecretKey: "gitSshKey"
+    sshKnownHosts: |-
+          github.com ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCj7ndNxQowgcQnjshcLrqPEiiphnt+VTTvDP6mHBL9j1aNUkY4Ue1gvwnGLVlOhGeYrnZaMgRK6+PKCUXaDbC7qtbW8gIkhL7aGCsOr/C56SJMy/BCZfxd1nWzAOxSDPgVsmerOBYfNqltV9/hWCqBywINIR+5dIg6JTJ72pcEpEjcYgXkE2YEFXV1JHnsKgbLWNlhScqb2UmyRkQyytRLtL+38TGxkxCflmO+5Z8CSSNY7GidjMIZ7Q4zMjA2n1nGrlTDkzwDCsw+wqFPGQA179cnfGWOWRVruj16z6XyvxvjJwbz0wQZ75XK5tKSb7FNyeIEs4TT4jk+S4dhPeAUC5y+bDYirYgM4GC7uEnztnZyaVWQ7B381AK4Qdrwt51ZqExKbQpTUNn+EjqoTwvqNj4kqx5QUCI0ThS/YkOxJCXmPUWZbhjpCg56i+2aB6CmK2JGhn57K5mj0MNdBXA4/WnwH6XoPWJzK5Nyu2zB3nAZp+S5hpQs+p1vN1/wsjk=
 
 ###################################
 ## CONFIG | Kubernetes Ingress
@@ -301,8 +334,9 @@ postgresql:
   persistence:
     enabled: true
     storageClass: ""
-    size: 2Gi
+    size: 512Mi
 
+      
 ###################################
 ## DATABASE | External Database
 ###################################

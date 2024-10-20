@@ -225,7 +225,77 @@ We can also install Prometheus for monitoring:
 
 If the repo add is timing out, add more nameservers to the Pi:
 
-    sudo nano /etc/systemd/resolved.conf
+    sudo nano /etc/resolv.conf
 
     DNS=1.1.1.1 1.0.0.1 
     FallbackDNS=8.8.8.8 8.8.4.4
+
+# Airflow
+
+A clear explanation of Executor vs Operator:
+https://www.youtube.com/watch?v=b1gpbGB058M
+
+![alt text](image.png)
+![alt text](image-1.png)
+
+# Setup additional worker node 
+
+I am using WSL2 on an old Windows laptop as my worker node. We can follow the same method for Pi, just need to set up SSH forwarding for the Windows > WSL2 section.
+
+https://www.hanselman.com/blog/how-to-ssh-into-wsl2-on-windows-10-from-an-external-machine
+
+**In WSL2**
+
+    sudo apt install openssh-server
+    sudo nano /etc/ssh/sshd_config
+    > Port 22
+    > Listen Address 0.0.0.0
+    > PasswordAuthentication yes
+
+**In Admin CMD PROMPT**
+
+Get WSL2 IP
+
+    wsl hostname -I
+    > 172.21.63.80
+
+Forward port
+
+    netsh interface portproxy add v4tov4 listenaddress=0.0.0.0 listenport=2222 connectaddress=172.21.63.80 connectport=22
+    netsh advfirewall firewall add rule name="Open Port 2222 for WSL2" dir=in action=allow protocol=TCP localport=2222
+
+To remove
+
+    netsh interface portproxy show v4tov4
+    netsh int portproxy reset all
+
+Worker is now ssh-able, make sure to specify the windows port 2222
+
+     ssh -p 2222 oliver@192.168.10.204
+
+If getting `ssh_exchange_identification: read: Connection reset by peer` errors, try reinstalling openssh-server
+
+Since k3s worker is running inside WSL2, the INTERNAL IP will be 172.x.x.x, we need to tell k3s worker to advertise their IP as the network IP instead 192.168.10.204:
+
+    curl -sfL https://get.k3s.io | K3S_URL=https://$MASTER_IP:6443 \
+    K3S_TOKEN=$MASTER_TOKEN sh -s - --node-label 'node_type=worker' \
+    --kubelet-arg 'config=/etc/rancher/k3s/kubelet.config' \
+    --kube-proxy-arg 'metrics-bind-address=0.0.0.0' \
+    --node-external-ip '192.168.10.204'
+
+Also, restart coreDNS
+
+    kubectl -n kube-system rollout restart deployment coredns
+
+# General learnings
+
+- taint: an attribute applied to a node that 'taints' it from being used for certain purposes. For e.g. a node can be tainted such that pods cannot be scheduled on it - generally used for master nodes where you don't want the control plan to be saddled with workloads
+- toleration: a special override given to a pod that allows it be deployed to a node even when it is tainted.
+- affinities: pods can 'prefer' or 'only be deployable on' certain nodes, based on the labels referenced.
+- local-path-provisioner: a special service for k3s/ rancher that automatically creates PVs when a PVC is referenced. this creates the PV without us having to first define it, it also cleans it up after the PVC is no longer bound.
+- PV host path: persistent volumes are partitions carved out from a larger storage class (the disk). we can use the hostPath to specify which direcotry we want th ePV to use.
+- storage class reclaim policy: a storage class may reclaim back the space after a PV is deleted. it can do this by 'Delete' the data that was there, or other means
+- coreDNS: the nodes are able to talk to each other and to other IPs through the coreDNS
+- resource limits and requests. limits are the max a pod can take, requests are the min they are given. requests < limits
+- a pod can end up not being schedulable if the PV that is claiming (via PVC) is using storage of a tainted node (when deployments are not properly terminated)
+- PVs can be ReadWriteMany or ReadWriteOnce. Many = any pod in a node can mount to it. Once = only a given pod can mount it.
